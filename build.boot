@@ -18,7 +18,7 @@
 (deftask alpha
   []
   (set-env!
-    :target-path    "modules/bravo/target"
+    :target-path    "modules/alpha/target"
     :resource-paths #{"modules/alpha/src"}
     :dependencies   '[[org.clojure/clojure "1.7.0"]
                       [tailrecursion/warp  "0.1.0"]])
