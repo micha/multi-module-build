@@ -1,7 +1,3 @@
-
-
-
-(import boot.App)
 (require '[boot.pod :as pod]
          '[clojure.java.io :as io])
 
@@ -39,8 +35,8 @@
 (defn runboot
   [& boot-args]
   (future
-    (App/runBoot
-      (App/newCore)
+    (boot.App/runBoot
+      (boot.App/newCore)
       (future @pod/worker-pod)
       (into-array String boot-args))))
 
