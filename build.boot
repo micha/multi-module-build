@@ -24,8 +24,7 @@
                       [tailrecursion/warp  "0.1.0"]])
   (comp (aot :all true)
         (uber)
-        (jar :file "alpha.jar" :main 'alpha.core)
-        (pick :dir "modules/bravo/resources" :file #{"alpha.jar"})))
+        (jar :file "alpha.jar" :main 'alpha.core)))
 
 (deftask bravo
   []
@@ -48,7 +47,7 @@
 (deftask build
   []
   (info "Building alpha...\n")
-  (runboot "watch" "alpha")
+  (runboot "watch" "alpha" "pick" "-d" "modules/bravo/resources" "-f" "alpha.jar")
   (Thread/sleep 5000)
   (info "Building bravo...\n")
   (runboot "watch" "bravo")
