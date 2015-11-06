@@ -2,10 +2,15 @@
   '[boot.pod :as pod]
   '[clojure.java.io :as io])
 
-(import
-  [java.util.concurrent ConcurrentHashMap Semaphore])
+(import [java.util.concurrent ConcurrentHashMap Semaphore])
 
-(def data (ConcurrentHashMap.))
+;; helpers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(deftask say
+  [t text TEXT str "The text to print."]
+  (with-pre-wrap [fs]
+    (with-let [_ fs]
+      (info "%s\n" text))))
 
 (deftask pick
   [f files PATH #{str} "The files to pick."
@@ -17,22 +22,6 @@
                        (filter #((or files #{}) (first %))))]
         (doseq [[p f] files] (io/copy f (io/file dir p)))))))
 
-(deftask runboot
-  [a args ARG [str] "The boot cli arguments."]
-  (with-pre-wrap [fs]
-    (with-let [_ fs]
-      (future (boot.App/runBoot
-                (boot.App/newCore data)
-                (future pod/worker-pod)
-                (into-array String args))))))
-
-(deftask acquire-permit
-  [d data VAR code "The optional data var."]
-  (with-pre-wrap [fs]
-    (with-let [_ fs]
-      (.putIfAbsent (or data pod/data) "semaphore" (Semaphore. 1 true))
-      (.acquire (get (or data pod/data) "semaphore")))))
-
 (deftask release-permit
   [d data VAR code "The optional data var."]
   (with-pre-wrap [fs]
@@ -40,11 +29,20 @@
       (.putIfAbsent (or data pod/data) "semaphore" (Semaphore. 1 true))
       (.release (get (or data pod/data) "semaphore")))))
 
-(deftask say
-  [t text TEXT str "The text to print."]
-  (with-pre-wrap [fs]
-    (with-let [_ fs]
-      (info "%s\n" text))))
+(deftask runboot
+  [d data SYM code  "The global state Map."
+   a args ARG [str] "The boot cli arguments."]
+  (assert data "You must provide a ConcurrentHashMap as --data.")
+  (let [core   (boot.App/newCore data)
+        worker (future pod/worker-pod)
+        args   (into-array String ((fnil conj []) args "release-permit"))]
+    (with-pre-wrap [fs]
+      (with-let [_ fs]
+        (.putIfAbsent data "semaphore" (Semaphore. 1 true))
+        (.acquire (get data "semaphore"))
+        (future (boot.App/runBoot core worker args))))))
+
+;; module build tasks ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (deftask alpha
   []
@@ -65,13 +63,12 @@
         (uber)
         (jar :file "bravo.jar")))
 
+;; multi-module build task ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (deftask doit
   []
-  (comp
-    (acquire-permit :data data)
-    (runboot :args ["watch" "say" "-t" "alpha" "alpha" "pick" "-f" "alpha.jar" "-d" "modules/bravo/resources" "release-permit"])
-    (acquire-permit :data data)
-    (runboot :args ["watch" "say" "-t" "bravo" "bravo" "pick" "-f" "bravo.jar" "-d" "target" "release-permit"])
-    (wait)
-    ))
+  (let [data (ConcurrentHashMap.)]
+    (comp (runboot :data data :args ["watch" "say" "-t" "alpha" "alpha" "pick" "-f" "alpha.jar" "-d" "modules/bravo/resources"])
+          (runboot :data data :args ["watch" "say" "-t" "bravo" "bravo" "pick" "-f" "bravo.jar" "-d" "target"])
+          (wait))))
 
