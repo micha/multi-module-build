@@ -20,8 +20,7 @@
 
 (deftask say
   [t text TEXT str "The text to print."]
-  (with-pass-thru [fs]
-    (info "%s\n" text)))
+  (with-pass-thru [fs] (info "%s\n" text)))
 
 (deftask pick
   [f files PATH #{str} "The files to pick."
@@ -30,12 +29,10 @@
     (let [files (->> (output-files fs)
                      (map (juxt tmp-path tmp-file))
                      (filter #((or files #{}) (first %))))]
-      (doseq [[p f] files] (io/copy f (io/file dir p))))))
+      (doseq [[p f] files] (io/copy f (doto (io/file dir p) io/make-parents))))))
 
-(deftask release-permit
-  []
-  (with-pass-thru [fs]
-    (.release (get pod/data "semaphore"))))
+(deftask release-permit []
+  (with-pass-thru [fs] (.release (get pod/data "semaphore"))))
 
 (deftask runboot
   [a args ARG [str] "The boot cli arguments."]
@@ -52,8 +49,7 @@
 
 ;; module build tasks ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftask alpha
-  []
+(deftask alpha []
   (set-env!
     :resource-paths #{"modules/alpha/src"}
     :dependencies   '[[org.clojure/clojure "1.7.0"]
@@ -63,8 +59,7 @@
         (uber)
         (jar :file "alpha.jar")))
 
-(deftask bravo
-  []
+(deftask bravo []
   (set-env!
     :resource-paths #{"modules/bravo/src" "modules/bravo/resources"}
     :dependencies   '[[org.clojure/clojure "1.7.0"]])
@@ -75,8 +70,7 @@
 
 ;; multi-module build task ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftask doit
-  []
+(deftask doit []
   (with-boot-context
     (comp (runboot :args ["watch" "alpha" "pick" "-f" "alpha.jar" "-d" "modules/bravo/resources"])
           (runboot :args ["watch" "bravo" "pick" "-f" "bravo.jar" "-d" "target"])
